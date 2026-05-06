@@ -1,31 +1,50 @@
 package com.escuela.techcup.gateway.util;
 
-import java.nio.charset.StandardCharsets;
-
-import javax.crypto.SecretKey;
-
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 
-/**
- * Utilidad para VALIDAR tokens JWT en el Gateway.
- */
 @Component
 public class JwtUtil {
 
-    @Value("${jwt.secret}")
+    @Value("${app.jwt.secret}")
     private String secret;
 
+    private SecretKey buildKey() {
+        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    }
+
     public Claims validateToken(String token) {
-        SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         return Jwts.parser()
-                .verifyWith(key)
+                .verifyWith(buildKey())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    public boolean isValid(String token) {
+        try {
+            validateToken(token);
+            return true;
+        } catch (ExpiredJwtException e) {
+            return false;
+        } catch (JwtException e) {
+            return false;
+        }
+    }
+
+    public String extractUserId(String token) {
+        return validateToken(token).getSubject();
+    }
+
+    public String extractRole(String token) {
+        return validateToken(token).get("role", String.class);
     }
 }
