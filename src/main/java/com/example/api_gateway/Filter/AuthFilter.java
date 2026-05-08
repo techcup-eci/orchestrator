@@ -1,6 +1,7 @@
 package com.example.api_gateway.Filter;
 
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -19,7 +20,6 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 
 @Component
 public class AuthFilter implements GatewayFilter, Ordered {
@@ -27,21 +27,8 @@ public class AuthFilter implements GatewayFilter, Ordered {
     @Value("${app.jwt.secret}")
     private String jwtSecret;
 
-    // Rutas que NO requieren token
-    private static final List<String> PUBLIC_PATHS = List.of(
-            "/api/auth/login",
-            "/api/auth/registro"
-    );
-
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        String path = exchange.getRequest().getURI().getPath();
-
-
-        if (PUBLIC_PATHS.stream().anyMatch(path::startsWith)) {
-            return chain.filter(exchange);
-        }
-
         String authHeader = exchange.getRequest()
                 .getHeaders()
                 .getFirst(HttpHeaders.AUTHORIZATION);
@@ -52,14 +39,20 @@ public class AuthFilter implements GatewayFilter, Ordered {
 
         String token = authHeader.substring(7);
 
-
-        if (!isTokenValid(token)) {
-            return onError(exchange, "Token inválido o expirado", HttpStatus.UNAUTHORIZED);
+        // Parsear el token UNA sola vez y extraer claims
+        Claims claims;
+        try {
+            claims = Jwts.parser()
+                    .verifyWith(Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8)))
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+        } catch (JwtException e) {
+            return onError(exchange, "Token invalido o expirado", HttpStatus.UNAUTHORIZED);
         }
 
-
-        String userId = extractClaim(token, "sub");
-        String role   = extractClaim(token, "role");
+        String userId = claims.get("sub", String.class);
+        String role   = claims.get("role", String.class);
 
         ServerHttpRequest mutatedRequest = exchange.getRequest()
                 .mutate()
@@ -68,27 +61,6 @@ public class AuthFilter implements GatewayFilter, Ordered {
                 .build();
 
         return chain.filter(exchange.mutate().request(mutatedRequest).build());
-    }
-
-    private boolean isTokenValid(String token) {
-        try {
-            Jwts.parser()
-                    .verifyWith(Keys.hmacShaKeyFor(jwtSecret.getBytes()))
-                    .build()
-                    .parseSignedClaims(token);
-            return true;
-        } catch (JwtException e) {
-            return false;
-        }
-    }
-
-    private String extractClaim(String token, String claim) {
-        return Jwts.parser()
-                .verifyWith(Keys.hmacShaKeyFor(jwtSecret.getBytes()))
-                .build()
-                .parseSignedClaims(token)
-                .getPayload()
-                .get(claim, String.class);
     }
 
     private Mono<Void> onError(ServerWebExchange exchange, String message, HttpStatus status) {
