@@ -2,26 +2,81 @@ server:
   port: 8080
 
 spring:
+  application:
+    name: techcup-gateway
+
   cloud:
     gateway:
+      httpclient:
+        connect-timeout: 2000
+        response-timeout: 10s
+
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOrigins: "http://localhost:3000" # URL de tu React
+            allowedOriginPatterns:
+              - "http://localhost:3000"
+              - "http://localhost:5173"
             allowedMethods:
               - GET
               - POST
               - PUT
               - DELETE
+              - OPTIONS
             allowedHeaders: "*"
-      
+            exposedHeaders:
+              - X-User-Id
+              - X-User-Role
+            allowCredentials: true
+            maxAge: 3600
+
       routes:
+        # service identity
         - id: auth-service
           uri: http://localhost:8081
           predicates:
             - Path=/auth/**
-            
+
+        # service users
         - id: users-service
           uri: http://localhost:8082
           predicates:
             - Path=/users/**
+          filters:
+            - AuthFilter
+
+        # service teams
+        - id: teams-service
+          uri: http://localhost:8083
+          predicates:
+            - Path=/teams/**
+          filters:
+            - AuthFilter
+
+        # service tournaments
+        - id: tournaments-service
+          uri: http://localhost:8084
+          predicates:
+            - Path=/tournaments/**
+          filters:
+            - AuthFilter
+
+        # service competitions
+        - id: competition-service
+          uri: http://localhost:8085
+          predicates:
+            - Path=/competition/**
+          filters:
+            - AuthFilter
+
+# JWT secret from environment variable (fallback for local dev only)
+app:
+  jwt:
+    secret: ${JWT_SECRET:techcup-clave-secreta-minimo-256-bits-cambiar-en-produccion}
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
