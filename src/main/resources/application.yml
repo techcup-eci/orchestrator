@@ -1,27 +1,101 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
+  application:
+    name: techcup-gateway
   cloud:
     gateway:
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOrigins: "http://localhost:3000" # URL de tu React
+            allowedOrigins:
+              - ${FRONTEND_URL:http://localhost:3000}
             allowedMethods:
               - GET
               - POST
               - PUT
               - DELETE
+              - OPTIONS
             allowedHeaders: "*"
-      
+            allowCredentials: true
       routes:
+        # Identity — público, sin filtro
         - id: auth-service
-          uri: http://localhost:8081
+          uri: ${IDENTITY_SERVICE_URL:http://localhost:8081}
           predicates:
-            - Path=/auth/**
-            
+            - Path=/api/auth/**
+
+        # Users register — público, sin filtro
+        - id: users-register
+          uri: ${USERS_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/users/register
+
+        # Users — protegido
         - id: users-service
-          uri: http://localhost:8082
+          uri: ${USERS_SERVICE_URL:http://localhost:8082}
           predicates:
-            - Path=/users/**
+            - Path=/api/users/**
+          filters:
+            - AuthFilter
+
+        # Teams — protegido
+        - id: teams-service
+          uri: ${TEAMS_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/teams/**
+          filters:
+            - AuthFilter
+
+        # Tournaments — protegido
+        - id: tournaments-service
+          uri: ${TOURNAMENT_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/tournaments/**
+          filters:
+            - AuthFilter
+
+        # Competition — protegido
+        - id: competition-service
+          uri: ${COMPETITION_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/competition/**
+          filters:
+            - AuthFilter
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:techcup-clave-secreta-minimo-256-bits-cambiar-en-produccion}
+
+# Documentación centralizada — Swagger UI
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    urls:
+      - name: Identity Service
+        url: /api/auth/v3/api-docs
+      - name: Users Service
+        url: /api/users/v3/api-docs
+      - name: Teams Service
+        url: /api/teams/v3/api-docs
+      - name: Tournaments Service
+        url: /api/tournaments/v3/api-docs
+      - name: Competition Service
+        url: /api/competition/v3/api-docs
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+  endpoint:
+    health:
+      show-details: always
+
+# Logging
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    com.escuelaing.techcup: INFO

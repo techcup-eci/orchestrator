@@ -31,3 +31,29 @@ build/
 
 ### VS Code ###
 .vscode/
+
+## Personalizado ##
+# Maven
+target/
+*.jar
+*.war
+*.class
+.mvn/
+!.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.properties
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+application-local.yml
