@@ -1,4 +1,4 @@
-package com.example.api_gateway.Filter;
+package com.escuela.techcup.gateway.filter;
 
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
@@ -25,6 +25,4 @@ public class AuthFilterFactory extends AbstractGatewayFilterFactory<AuthFilterFa
 
     public static class Config {
     }
-
-
 }

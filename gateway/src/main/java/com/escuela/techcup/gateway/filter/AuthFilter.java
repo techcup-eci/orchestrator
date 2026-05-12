@@ -1,4 +1,4 @@
-package com.example.api_gateway.Filter;
+package com.escuela.techcup.gateway.filter;
 
 
 import io.jsonwebtoken.Claims;
