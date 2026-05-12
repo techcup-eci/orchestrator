@@ -1,7 +1,11 @@
 package com.escuela.techcup.gateway.filter;
 
-import com.escuela.techcup.gateway.util.JwtUtil;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.core.Ordered;
@@ -16,27 +20,15 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 
 @Component
 public class AuthFilter implements GatewayFilter, Ordered {
 
-    @Autowired
-    private JwtUtil jwtUtil;
-
-    private static final List<String> PUBLIC_PATHS = List.of(
-            "/api/auth/login",
-            "/api/auth/registro"
-    );
+    @Value("${app.jwt.secret}")
+    private String jwtSecret;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        String path = exchange.getRequest().getURI().getPath();
-
-        if (PUBLIC_PATHS.stream().anyMatch(path::startsWith)) {
-            return chain.filter(exchange);
-        }
-
         String authHeader = exchange.getRequest()
                 .getHeaders()
                 .getFirst(HttpHeaders.AUTHORIZATION);
@@ -47,35 +39,35 @@ public class AuthFilter implements GatewayFilter, Ordered {
 
         String token = authHeader.substring(7);
 
-        if (!jwtUtil.isValid(token)) {
-            return onError(exchange, "Token inválido o expirado", HttpStatus.UNAUTHORIZED);
+        // Parsear el token UNA sola vez y extraer claims
+        Claims claims;
+        try {
+            claims = Jwts.parser()
+                    .verifyWith(Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8)))
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+        } catch (JwtException e) {
+            return onError(exchange, "Token invalido o expirado", HttpStatus.UNAUTHORIZED);
         }
 
-        String userId = jwtUtil.extractUserId(token);
-        String role   = jwtUtil.extractRole(token);
+        String userId = claims.get("sub", String.class);
+        String role   = claims.get("role", String.class);
 
         ServerHttpRequest mutatedRequest = exchange.getRequest()
                 .mutate()
-                .header("X-User-Id",   userId)
+                .header("X-User-Id", userId)
                 .header("X-User-Role", role)
                 .build();
 
         return chain.filter(exchange.mutate().request(mutatedRequest).build());
     }
 
-    private Mono<Void> onError(ServerWebExchange exchange,
-                               String message,
-                               HttpStatus status) {
+    private Mono<Void> onError(ServerWebExchange exchange, String message, HttpStatus status) {
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(status);
         response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
-
-        String body = String.format(
-                "{\"status\":%d,\"error\":\"%s\"}",
-                status.value(), message
-        );
-
-        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        byte[] bytes = ("{\"error\":\"" + message + "\"}").getBytes(StandardCharsets.UTF_8);
         DataBuffer buffer = response.bufferFactory().wrap(bytes);
         return response.writeWith(Mono.just(buffer));
     }
