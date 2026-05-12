@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   application:
@@ -90,3 +90,12 @@ management:
     web:
       exposure:
         include: health, info
+  endpoint:
+    health:
+      show-details: always
+
+# Logging
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    com.escuelaing.techcup: INFO
