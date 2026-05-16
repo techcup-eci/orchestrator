@@ -64,6 +64,14 @@ spring:
           filters:
             - AuthFilter
 
+        # Players — protegido
+        - id: players-service
+          uri: ${PLAYERS_SERVICE_URL:http://localhost:8086}
+          predicates:
+            - Path=/api/players/**
+          filters:
+            - AuthFilter
+
 app:
   jwt:
     secret: ${JWT_SECRET:techcup-clave-secreta-minimo-256-bits-cambiar-en-produccion}
